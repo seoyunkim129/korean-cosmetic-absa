@@ -4,7 +4,7 @@
 
 `Python` `PyTorch` `HuggingFace Transformers` `KLUE-RoBERTa` `KLUE-BERT` `Google Colab`
 
-동덕여자대학교 데이터사이언스전공 캡스톤 · 3인 팀 (김서윤, 장지안, 김태완)
+동덕여자대학교 데이터사이언스전공 캡스톤 · 2인 팀 (김서윤, 장지안)
 
 ---
 
