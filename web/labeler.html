@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리뷰 라벨링</title>
+<style>
+  :root {
+    --bg: #f6f6f3; --card: #fff; --ink: #1d1d1b; --sub: #6b6b66; --line: #e3e2dc;
+    --accent: #3b5bdb; --pos: #2f9e44; --neg: #e03131; --neu: #868e96;
+    --chip: #f1f0ec; --chip-on: #dbe4ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --card: #1f1f1d; --ink: #ecebe6; --sub: #9b9a93; --line: #34332f;
+      --accent: #748ffc; --pos: #51cf66; --neg: #ff6b6b; --neu: #adb5bd;
+      --chip: #2a2a27; --chip-on: #2f3a66;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.6 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 80px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 17px; margin: 0; }
+  .bar { flex: 1; min-width: 160px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .count { color: var(--sub); font-variant-numeric: tabular-nums; font-size: 14px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+           border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--sub); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .meta { color: var(--sub); font-size: 13px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .review { font-size: 17px; line-height: 1.75; margin: 10px 0 0; white-space: pre-wrap; word-break: keep-all; }
+  .done-tag { color: var(--pos); font-weight: 600; }
+  h2 { font-size: 14px; margin: 0 0 10px; color: var(--sub); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--chip); border: 1px solid transparent; border-radius: 999px; padding: 5px 12px; font-size: 14px; }
+  .chip.on { background: var(--chip-on); border-color: var(--accent); font-weight: 600; }
+  .rows { margin-top: 14px; display: grid; gap: 8px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .row .name { min-width: 110px; font-weight: 600; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 5px 14px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on[data-s="긍정"] { background: var(--pos); color: #fff; }
+  .seg button.on[data-s="부정"] { background: var(--neg); color: #fff; }
+  .seg button.on[data-s="중립"] { background: var(--neu); color: #fff; }
+  .row.missing .name::after { content: " · 감정 선택"; color: var(--neg); font-weight: 400; font-size: 13px; }
+  .none { margin-top: 12px; display: flex; gap: 8px; align-items: center; color: var(--sub); font-size: 14px; }
+  textarea { width: 100%; min-height: 54px; font: inherit; font-size: 14px; color: var(--ink); background: var(--bg);
+             border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .actions .msg { color: var(--sub); font-size: 13px; margin-left: auto; }
+  .msg.err { color: var(--neg); }
+  details { font-size: 14px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details li { margin: 4px 0; }
+  kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
+  .muted { color: var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>올리브영 리뷰 라벨링</h1>
+    <div class="bar"><i id="bar"></i></div>
+    <span class="count" id="count">0 / 0</span>
+  </header>
+
+  <details class="card" id="guide">
+    <summary>라벨 기준 (처음 한 번 읽기)</summary>
+    <ul>
+      <li><b>속성</b>: 리뷰가 그 속성에 대해 <b>무언가 말하면</b> 고른다. 제품명·광고 문구에만 나오면 고르지 않는다.</li>
+      <li><b>긍정 / 부정</b>: 그 속성에 대한 평가가 좋다 / 나쁘다.</li>
+      <li><b>중립</b>: 언급은 했지만 좋다·나쁘다는 평가가 없다. 예) "향은 무향에 가깝고", "500ml 대용량이에요"만 있는 경우.</li>
+      <li><b>섞인 경우</b> 예) "처음엔 따끔하지만 적응되면 괜찮아요" → 더 강하게 말한 쪽을 고르고, 메모에 <b>혼합</b>이라고 적는다. (나중에 혼합만 따로 볼 수 있음)</li>
+      <li>21개 속성 어디에도 안 맞으면 <b>해당 속성 없음</b>을 체크한다.</li>
+      <li>모델 예측은 일부러 보여주지 않는다 — 모델 답에 끌려가지 않고 내 기준으로 정답을 만들기 위해서.</li>
+    </ul>
+    <p class="muted">단축키: <kbd>1</kbd> 긍정 <kbd>2</kbd> 부정 <kbd>3</kbd> 중립 (마지막에 고른 속성에 적용) · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 저장하고 다음 · <kbd>←</kbd><kbd>→</kbd> 이전/다음 (입력창 밖에서)</p>
+  </details>
+
+  <section class="card">
+    <div class="meta"><span id="product"></span><span id="status"></span></div>
+    <p class="review" id="review">불러오는 중…</p>
+  </section>
+
+  <section class="card">
+    <h2>이 리뷰가 말하는 속성</h2>
+    <div class="chips" id="chips"></div>
+    <div class="rows" id="rows"></div>
+    <label class="none"><input type="checkbox" id="none"> 해당 속성 없음</label>
+  </section>
+
+  <section class="card">
+    <h2>메모 (선택)</h2>
+    <textarea id="note" placeholder="예) 혼합 / 반어 / 속성 경계 애매(사용감 vs 발림성)"></textarea>
+  </section>
+
+  <div class="actions">
+    <button id="prev">← 이전</button>
+    <button id="next">다음 →</button>
+    <button id="jump">다음 미완료로</button>
+    <button class="primary" id="save">저장하고 다음 (Ctrl+Enter)</button>
+    <span class="msg" id="msg"></span>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let ASPECTS = [], SAMPLE = [], LABELS = {}, i = 0;
+let cur = { aspects: {}, order: [] };   // order: 고른 순서 (단축키 대상)
+
+async function boot() {
+  const r = await fetch("/api/data");
+  const d = await r.json();
+  ASPECTS = d.aspects; SAMPLE = d.sample; LABELS = d.labels;
+  const first = SAMPLE.findIndex(s => !LABELS[String(s.review_id)]);
+  i = first === -1 ? 0 : first;
+  render();
+}
+
+function render() {
+  const s = SAMPLE[i];
+  const saved = LABELS[String(s.review_id)];
+  $("product").textContent = `${i + 1}번째 · ${s["제품명"]}`;
+  $("status").innerHTML = saved ? `<span class="done-tag">저장됨</span> ${saved.saved_at}` : "미완료";
+  $("review").textContent = s["리뷰텍스트"];
+  cur = { aspects: { ...(saved?.aspects || {}) }, order: Object.keys(saved?.aspects || {}) };
+  $("none").checked = !!saved?.no_aspect;
+  $("note").value = saved?.note || "";
+  drawChips(); drawRows(); progress();
+  $("msg").textContent = ""; $("msg").className = "msg";
+}
+
+function drawChips() {
+  $("chips").innerHTML = "";
+  for (const a of ASPECTS) {
+    const b = document.createElement("button");
+    b.className = "chip" + (a in cur.aspects ? " on" : "");
+    b.textContent = a;
+    b.onclick = () => toggle(a);
+    $("chips").appendChild(b);
+  }
+}
+
+function drawRows() {
+  $("rows").innerHTML = "";
+  for (const a of cur.order) {
+    const row = document.createElement("div");
+    row.className = "row" + (cur.aspects[a] ? "" : " missing");
+    row.innerHTML = `<span class="name">${a}</span><span class="seg">` +
+      ["긍정", "부정", "중립"].map(s => `<button data-s="${s}" class="${cur.aspects[a] === s ? "on" : ""}">${s}</button>`).join("") +
+      `</span>`;
+    row.querySelectorAll(".seg button").forEach(btn => btn.onclick = () => setSent(a, btn.dataset.s));
+    $("rows").appendChild(row);
+  }
+}
+
+function toggle(a) {
+  if (a in cur.aspects) { delete cur.aspects[a]; cur.order = cur.order.filter(x => x !== a); }
+  else { cur.aspects[a] = null; cur.order.push(a); $("none").checked = false; }
+  drawChips(); drawRows();
+}
+
+function setSent(a, s) { cur.aspects[a] = s; drawRows(); }
+
+function progress() {
+  const n = SAMPLE.filter(s => LABELS[String(s.review_id)]).length;
+  $("count").textContent = `${n} / ${SAMPLE.length}`;
+  $("bar").style.width = `${(n / SAMPLE.length) * 100}%`;
+}
+
+function say(t, err) { $("msg").textContent = t; $("msg").className = "msg" + (err ? " err" : ""); }
+
+async function save() {
+  const picked = Object.keys(cur.aspects);
+  if (!picked.length && !$("none").checked) return say("속성을 고르거나 '해당 속성 없음'을 체크하세요", true);
+  if (picked.some(a => !cur.aspects[a])) return say("감정을 고르지 않은 속성이 있어요", true);
+  const s = SAMPLE[i];
+  const rec = { review_id: s.review_id, aspects: Object.fromEntries(cur.order.map(a => [a, cur.aspects[a]])),
+                no_aspect: $("none").checked && !picked.length, note: $("note").value.trim() };
+  const r = await fetch("/api/label", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) });
+  const d = await r.json();
+  if (!r.ok) return say(d.error || "저장 실패", true);
+  LABELS[String(s.review_id)] = { ...rec, saved_at: d.saved_at };
+  go(1); say("저장했어요");
+}
+
+function go(step) { i = Math.min(SAMPLE.length - 1, Math.max(0, i + step)); render(); }
+
+$("prev").onclick = () => go(-1);
+$("next").onclick = () => go(1);
+$("save").onclick = save;
+$("jump").onclick = () => {
+  const k = SAMPLE.findIndex((s, j) => j > i && !LABELS[String(s.review_id)]);
+  const k0 = k === -1 ? SAMPLE.findIndex(s => !LABELS[String(s.review_id)]) : k;
+  if (k0 === -1) return say("전부 라벨링했어요 🎉");
+  i = k0; render();
+};
+$("none").onchange = e => { if (e.target.checked) { cur = { aspects: {}, order: [] }; drawChips(); drawRows(); } };
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); return save(); }
+  if (e.target.tagName === "TEXTAREA") return;
+  const map = { "1": "긍정", "2": "부정", "3": "중립" };
+  if (map[e.key] && cur.order.length) setSent(cur.order[cur.order.length - 1], map[e.key]);
+  if (e.key === "ArrowLeft") go(-1);
+  if (e.key === "ArrowRight") go(1);
+});
+
+boot().catch(err => { $("review").textContent = "데이터를 못 불러왔어요: " + err; });
+</script>
+</body>
+</html>
