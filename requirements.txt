@@ -1,0 +1,7 @@
+# 로컬 추론·검증·데모 데이터 생성용 (src/). 학습 노트북은 Google Colab 기본 환경에서 실행.
+# CPU만 있으면: pip install torch --index-url https://download.pytorch.org/whl/cpu 를 먼저 실행
+torch==2.14.1
+transformers==5.20.1
+scikit-learn==1.9.1
+pandas==3.0.6
+numpy==2.5.4

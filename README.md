@@ -99,6 +99,9 @@ flowchart LR
 - LLM이 모델 예측을 보지 않고 1차 라벨 → 모델과 갈린 항목(351개)과 합의 항목 일부(20개, 둘이 같이 틀리는 비율 측정용)만 사람이 **누가 낸 답인지 모르는 상태로** 판정
 - 결과는 속성 감지 · 감정 분류 · end-to-end로 나눠 이 README에 추가할 예정입니다
 
+### 다음 계획 — 데이터 확대
+크롤링 범위를 넓히는 대신, 정답 라벨이 있는 AI Hub 화장품 4개 카테고리(약 5만 건)로 학습·평가를 넓히고 적재·검증·배포를 자동화합니다. 올리브영은 봇 접근을 막고 있고 약관상 정보의 무단 복제를 금지해, 정기 자동 크롤링은 하지 않기로 했습니다. 조사 내용과 설계는 [docs/data-expansion-plan.md](docs/data-expansion-plan.md)에 있습니다.
+
 ## 5. 저장소 구조
 
 ```
@@ -116,9 +119,11 @@ korean-cosmetic-absa/
 │   ├── label_server.py                 # 라벨링·판정 화면 로컬 서버
 │   └── evaluate.py                     # 사람이 확정한 정답으로 실제 성능 측정
 ├── web/                                # 라벨링(labeler.html)·판정(review.html) 화면
-└── docs/
-    ├── demo/                           # 웹 데모 (GitHub Pages)
-    └── poster.pdf                      # 학술 발표 포스터
+├── docs/
+│   ├── demo/                           # 웹 데모 (GitHub Pages)
+│   ├── data-expansion-plan.md          # 데이터 확대 사전 조사·설계
+│   └── poster.pdf                      # 학술 발표 포스터
+└── requirements.txt
 ```
 
 ## 6. 실행 방법
@@ -129,7 +134,7 @@ korean-cosmetic-absa/
 
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install transformers scikit-learn pandas numpy
+pip install -r requirements.txt
 python src/pipeline.py          # outputs/predictions.csv (리뷰 1,655건, CPU에서 수십 분)
 python src/check_results.py     # Colab 파이프라인 결과와 대조 → 262행 모두 일치
 python src/build_demo_data.py   # docs/demo/data.js
