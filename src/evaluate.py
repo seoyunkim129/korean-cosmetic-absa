@@ -22,13 +22,51 @@ ROOT = Path(__file__).resolve().parents[1]
 SENTS = ["부정", "중립", "긍정"]
 
 
-def read_labels():
-    labels = {}
-    for line in (ROOT / "data" / "labels.jsonl").read_text(encoding="utf-8").splitlines():
+def jsonl(path, key):
+    out = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
         if line.strip():
             rec = json.loads(line)
-            labels[rec["review_id"]] = rec          # 같은 리뷰는 마지막 저장이 이긴다
-    return labels
+            out[rec[key]] = rec                     # 같은 항목은 마지막 저장이 이긴다
+    return out
+
+
+def read_labels():
+    """정답 만들기.
+    - data/labels.jsonl이 있으면: 사람이 처음부터 붙인 라벨을 그대로 쓴다.
+    - 없으면 (방식 C): LLM과 모델이 합의한 쌍 + 갈린 쌍은 사람 판정(data/judgments.jsonl).
+      합의 감사 항목도 사람 판정을 따른다.
+    """
+    if (ROOT / "data" / "labels.jsonl").exists():
+        return jsonl(ROOT / "data" / "labels.jsonl", "review_id"), None
+
+    queue = pd.read_csv(ROOT / "data" / "review_queue.csv", encoding="utf-8-sig")
+    judged = jsonl(ROOT / "data" / "judgments.jsonl", "item_id")
+    llm = jsonl(ROOT / "data" / "llm_labels.jsonl", "review_id")
+    labels = {rid: {"aspects": dict(r["aspects"]), "note": ""} for rid, r in llm.items()}
+
+    for q in queue.itertuples():
+        j = judged.get(q.item_id)
+        if j is None:
+            raise SystemExit(f"판정이 안 끝났어요: {len(judged)}/{len(queue)}개 판정됨")
+        asp = labels[q.review_id]["aspects"]
+        asp.pop(q.속성, None)                       # LLM 답을 지우고 사람 판정으로 덮는다
+        if j["value"] != "언급 없음":
+            asp[q.속성] = j["value"]
+        if j.get("note"):
+            labels[q.review_id]["note"] = j["note"]
+    # 판정 결과에서 누가 맞았는지 (LLM vs 모델, 합의 감사)
+    queue["사람"] = [judged[i]["value"] for i in queue.item_id]
+    return labels, queue
+
+
+def judge_summary(queue):
+    norm = lambda v: v if isinstance(v, str) else "언급 없음"
+    q = queue.assign(llm=queue["llm"].map(norm), model=queue["model"].map(norm))
+    print("[판정 요약] 갈린 항목에서 사람 판정과 일치한 비율")
+    for kind, g in q.groupby("유형"):
+        print(f"  {kind:8s} {len(g):3d}개 · LLM 맞음 {(g.llm == g.사람).mean():.0%} · 모델 맞음 {(g.model == g.사람).mean():.0%}")
+    print()
 
 
 def prf(tp, fp, fn):
@@ -38,7 +76,9 @@ def prf(tp, fp, fn):
 
 
 def main():
-    labels = read_labels()
+    labels, queue = read_labels()
+    if queue is not None:
+        judge_summary(queue)
     sample = pd.read_csv(ROOT / "data" / "label_sample.csv", encoding="utf-8-sig").set_index("review_id")
     pred = pd.read_csv(ROOT / "outputs" / "predictions.csv", encoding="utf-8-sig")
     pred = pred[pred["review_id"].isin(labels)]

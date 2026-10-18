@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>판정 모드</title>
+<style>
+  :root {
+    --bg: #f6f6f3; --card: #fff; --ink: #1d1d1b; --sub: #6b6b66; --line: #e3e2dc;
+    --accent: #3b5bdb; --pos: #2f9e44; --neg: #e03131; --neu: #868e96; --none: #495057; --focus: #edf2ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --card: #1f1f1d; --ink: #ecebe6; --sub: #9b9a93; --line: #34332f;
+      --accent: #748ffc; --pos: #51cf66; --neg: #ff6b6b; --neu: #adb5bd; --none: #868e96; --focus: #252b44;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.6 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 80px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 17px; margin: 0; }
+  .bar { flex: 1; min-width: 160px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .count { color: var(--sub); font-variant-numeric: tabular-nums; font-size: 14px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+           border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--sub); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .meta { color: var(--sub); font-size: 13px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .review { font-size: 17px; line-height: 1.75; margin: 10px 0 0; white-space: pre-wrap; word-break: keep-all; }
+  .q { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px; border-radius: 10px; }
+  .q + .q { border-top: 1px solid var(--line); }
+  .q.cur { background: var(--focus); }
+  .q .name { min-width: 120px; font-weight: 700; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { border: 0; border-radius: 0; padding: 6px 14px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on[data-v="긍정"] { background: var(--pos); color: #fff; }
+  .seg button.on[data-v="부정"] { background: var(--neg); color: #fff; }
+  .seg button.on[data-v="중립"] { background: var(--neu); color: #fff; }
+  .seg button.on[data-v="언급 없음"] { background: var(--none); color: #fff; }
+  .seg small { color: var(--sub); margin-left: 4px; font-size: 11px; }
+  textarea { width: 100%; min-height: 44px; font: inherit; font-size: 14px; color: var(--ink); background: var(--bg);
+             border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .msg { color: var(--sub); font-size: 13px; margin-left: auto; }
+  .msg.err { color: var(--neg); }
+  .help { font-size: 14px; color: var(--sub); }
+  .help b { color: var(--ink); }
+  kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
+  .done-tag { color: var(--pos); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>판정 — 이 속성에 대해 리뷰가 뭐라고 하나요?</h1>
+    <div class="bar"><i id="bar"></i></div>
+    <span class="count" id="count">0 / 0</span>
+  </header>
+
+  <div class="card help">
+    각 속성마다 하나만 고르세요. <b>긍정/부정</b> = 그 속성을 좋게/나쁘게 말함 · <b>중립</b> = 언급은 했지만 평가 없음(예: "무향에 가까워요") ·
+    <b>언급 없음</b> = 리뷰가 그 속성 얘기를 안 함. 좋다·나쁘다가 섞이면 더 강하게 말한 쪽을 고르고 메모에 <b>혼합</b>.
+    <br>단축키 <kbd>1</kbd> 긍정 <kbd>2</kbd> 부정 <kbd>3</kbd> 중립 <kbd>4</kbd> 언급 없음 (파란 줄에 적용) · 다 고르면 <kbd>Enter</kbd> 저장하고 다음
+  </div>
+
+  <section class="card">
+    <div class="meta"><span id="product"></span><span id="status"></span></div>
+    <p class="review" id="review">불러오는 중…</p>
+  </section>
+
+  <section class="card" id="qs"></section>
+
+  <section class="card">
+    <textarea id="note" placeholder="메모 (선택) 예) 혼합 / 속성 경계 애매"></textarea>
+  </section>
+
+  <div class="actions">
+    <button id="prev">← 이전</button>
+    <button id="next">다음 →</button>
+    <button class="primary" id="save">저장하고 다음 (Enter)</button>
+    <span class="msg" id="msg"></span>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const VALUES = ["긍정", "부정", "중립", "언급 없음"];
+let GROUPS = [], JUDGED = {}, g = 0, cur = {};
+
+async function boot() {
+  const d = await (await fetch("/api/queue")).json();
+  JUDGED = d.judged;
+  const byReview = new Map();
+  for (const it of d.items) {                    // 큐 순서대로 리뷰 묶기
+    if (!byReview.has(it.review_id)) byReview.set(it.review_id, { ...it, items: [] });
+    byReview.get(it.review_id).items.push(it);
+  }
+  GROUPS = [...byReview.values()];
+  const first = GROUPS.findIndex(x => !done(x));
+  g = first === -1 ? 0 : first;
+  render();
+}
+
+const done = grp => grp.items.every(it => JUDGED[String(it.item_id)]);
+
+function render() {
+  const grp = GROUPS[g];
+  $("product").textContent = `${g + 1} / ${GROUPS.length}번째 리뷰 · ${grp["제품명"]}`;
+  $("status").innerHTML = done(grp) ? '<span class="done-tag">저장됨</span>' : "미완료";
+  $("review").textContent = grp["리뷰텍스트"];
+  cur = Object.fromEntries(grp.items.map(it => [it.item_id, JUDGED[String(it.item_id)]?.value || null]));
+  $("note").value = JUDGED[String(grp.items[0].item_id)]?.note || "";
+  draw(); progress(); say("");
+}
+
+function focusIdx() { const ids = Object.keys(cur); const k = ids.findIndex(id => !cur[id]); return k === -1 ? ids.length - 1 : k; }
+
+function draw() {
+  const grp = GROUPS[g], f = focusIdx();
+  $("qs").innerHTML = "";
+  grp.items.forEach((it, k) => {
+    const row = document.createElement("div");
+    row.className = "q" + (k === f ? " cur" : "");
+    row.innerHTML = `<span class="name">${it["속성"]}</span><span class="seg">` +
+      VALUES.map((v, n) => `<button data-v="${v}" class="${cur[it.item_id] === v ? "on" : ""}">${v}<small>${n + 1}</small></button>`).join("") + `</span>`;
+    row.querySelectorAll("button").forEach(b => b.onclick = () => { cur[it.item_id] = b.dataset.v; draw(); });
+    $("qs").appendChild(row);
+  });
+}
+
+function progress() {
+  const n = GROUPS.filter(done).length;
+  $("count").textContent = `${n} / ${GROUPS.length}`;
+  $("bar").style.width = `${(n / GROUPS.length) * 100}%`;
+}
+
+function say(t, err) { $("msg").textContent = t; $("msg").className = "msg" + (err ? " err" : ""); }
+
+async function save() {
+  if (Object.values(cur).some(v => !v)) return say("아직 안 고른 속성이 있어요", true);
+  const judgments = Object.entries(cur).map(([item_id, value]) => ({ item_id: Number(item_id), value }));
+  const r = await fetch("/api/judge", { method: "POST", headers: { "Content-Type": "application/json" },
+                                         body: JSON.stringify({ judgments, note: $("note").value.trim() }) });
+  if (!r.ok) return say("저장 실패", true);
+  for (const j of judgments) JUDGED[String(j.item_id)] = { ...j, note: $("note").value.trim() };
+  const nxt = GROUPS.findIndex((x, k) => k > g && !done(x));
+  if (nxt === -1 && GROUPS.every(done)) { progress(); render(); return say("전부 판정했어요 🎉 Claude에게 끝났다고 알려 주세요"); }
+  g = nxt === -1 ? Math.min(g + 1, GROUPS.length - 1) : nxt;
+  render(); say("저장했어요");
+}
+
+function go(step) { g = Math.min(GROUPS.length - 1, Math.max(0, g + step)); render(); }
+$("prev").onclick = () => go(-1);
+$("next").onclick = () => go(1);
+$("save").onclick = save;
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "TEXTAREA") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } return; }
+  if (e.key === "Enter") { e.preventDefault(); return save(); }
+  const n = "1234".indexOf(e.key);
+  if (n !== -1) { const ids = Object.keys(cur); cur[ids[focusIdx()]] = VALUES[n]; draw(); }
+  if (e.key === "ArrowLeft") go(-1);
+  if (e.key === "ArrowRight") go(1);
+});
+
+boot().catch(err => { $("review").textContent = "큐를 못 불러왔어요: " + err; });
+</script>
+</body>
+</html>
