@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>속성별 리뷰 분석</title>
+<meta name="description" content="올리브영 기초케어 리뷰 1,655건을 21개 속성별 감정으로 나눠 제품을 비교하고, 중시하는 속성으로 추천 순위를 매기는 데모">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+    --pos: #2a78d6; --neu: #a3a198; --neg: #d5463d;
+    --accent: #2a78d6; --accent-soft: #e6effb; --hl: #fff6d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+      --pos: #3987e5; --neu: #a8a69e; --neg: #e2574d;
+      --accent: #3987e5; --accent-soft: #1d2a3d; --hl: #3a3420;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --pos: #3987e5; --neu: #a8a69e; --neg: #e2574d;
+    --accent: #3987e5; --accent-soft: #1d2a3d; --hl: #3a3420;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 15px/1.6 "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; word-break: keep-all; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.3; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 19px; margin: 0 0 4px; }
+  .lede { color: var(--ink-2); margin: 0 0 18px; max-width: 720px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .stat { background: var(--surface); border: 1px solid var(--ring); border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--ink-2); }
+  .stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  section { margin-bottom: 32px; }
+  .panel { background: var(--surface); border: 1px solid var(--ring); border-radius: 14px; padding: 20px; }
+
+  /* 평균이 가린 불만 */
+  .alerts { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .alert { text-align: left; background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 14px;
+           cursor: pointer; font: inherit; color: inherit; }
+  .alert:hover { border-color: var(--neg); }
+  .alert .pct { font-size: 26px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .alert .pct small { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 4px; }
+  .alert .asp { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+  .alert .asp::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--neg); }
+  .alert .prod { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+  .alert .also { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  /* 컨트롤 */
+  .controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; margin-bottom: 16px; }
+  label.k { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .search { position: relative; }
+  input[type=search] { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis);
+                       border-radius: 10px; padding: 9px 12px; }
+  .plist { list-style: none; margin: 6px 0 0; padding: 4px; max-height: 236px; overflow: auto; background: var(--surface);
+           border: 1px solid var(--ring); border-radius: 10px; }
+  .plist li button { width: 100%; text-align: left; font: inherit; font-size: 14px; color: var(--ink); background: none; border: 0;
+                     border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  .plist li button:hover, .plist li button[aria-selected="true"] { background: var(--accent-soft); }
+  .plist li .n { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--axis);
+          border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+
+  /* 제품 패널 */
+  .prod-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 16px; }
+  .prod-head h2 { font-size: 20px; }
+  .tiles { display: flex; gap: 10px; }
+  .tile { min-width: 128px; border: 1px solid var(--ring); border-radius: 12px; padding: 10px 14px; }
+  .tile .lab { font-size: 12px; color: var(--ink-2); }
+  .tile .val { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .tile .val small { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  .tile.hl { border-color: var(--accent); }
+  .legend { display: flex; gap: 14px; font-size: 13px; color: var(--ink-2); margin-bottom: 10px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .bars { display: grid; gap: 7px; }
+  .bar-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-size: 14px; }
+  .bar-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-row .name small { color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .bar-row.mine .name { font-weight: 700; }
+  .bar-row.mine .name::after { content: " ★"; color: var(--accent); }
+  .track { display: flex; gap: 2px; height: 18px; position: relative; }
+  .seg { height: 100%; min-width: 0; }
+  .seg:first-child { border-radius: 4px 0 0 4px; }
+  .seg:last-child { border-radius: 0 4px 4px 0; }
+  .seg:only-child { border-radius: 4px; }
+  .seg.pos { background: var(--pos); } .seg.neu { background: var(--neu); } .seg.neg { background: var(--neg); }
+  .bar-row .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 13px; }
+  .few { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink); border: 1px solid var(--ring);
+         box-shadow: 0 4px 16px rgba(0,0,0,.12); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.5; display: none; }
+  .tip .row { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+  .tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+
+  /* 추천표 */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--grid); text-align: left; }
+  th { font-size: 12px; color: var(--ink-2); font-weight: 500; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.sel td { background: var(--hl); font-weight: 700; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: var(--accent-soft); }
+  .tbl-wrap { overflow-x: auto; }
+  .empty { color: var(--ink-2); padding: 18px 0; }
+
+  /* 설명 */
+  .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .how .panel { padding: 16px; }
+  .how h3 { font-size: 15px; margin: 0 0 6px; }
+  .how p, .how li { font-size: 14px; color: var(--ink-2); margin: 0; }
+  .how ul { margin: 0; padding-left: 18px; }
+  code { font-size: 12.5px; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+  footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--grid); padding-top: 16px; }
+  footer a { color: var(--ink-2); }
+
+  @media (max-width: 760px) {
+    h1 { font-size: 23px; }
+    .controls { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: 96px minmax(0, 1fr) 44px; gap: 8px; font-size: 13px; }
+    .bar-row .name { white-space: normal; line-height: 1.3; }
+    .bar-row .name small { display: block; margin-left: 0; }
+    .bar-row .vk { display: none; }
+    .tiles { width: 100%; } .tile { flex: 1; min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>별점 하나로는 안 보이는 것 — 리뷰를 속성별 감정으로 나눠 읽기</h1>
+    <p class="lede">리뷰 문장에서 보습력·자극성·가격 같은 <b>속성 21개</b>를 찾고, 속성마다 긍정·부정·중립을 나눴습니다.
+      "결은 좋아졌는데 따끔해요" 같은 리뷰가 한 점수로 뭉개지지 않고, 내가 중시하는 속성으로 제품을 비교할 수 있습니다.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section>
+    <h2>평균이 가린 불만</h2>
+    <p class="sub">언급 10건 이상인 속성 중 모델이 부정으로 분류한 비율이 높은 곳. 같은 제품의 다른 속성은 대부분 긍정이라 리뷰 전체 톤에 묻히기 쉽습니다. 누르면 아래에서 자세히 봅니다.</p>
+    <div class="alerts" id="alerts"></div>
+  </section>
+
+  <section>
+    <div class="controls">
+      <div>
+        <label class="k" for="q">제품 검색</label>
+        <div class="search">
+          <input type="search" id="q" placeholder="브랜드나 제품명 (예: 라운드랩)" autocomplete="off">
+          <ul class="plist" id="plist" role="listbox" aria-label="제품 목록"></ul>
+        </div>
+      </div>
+      <div>
+        <label class="k">내가 중시하는 속성 <span class="sub" style="font-weight:400">(고르면 개인화 지수와 추천 순위가 나옵니다)</span></label>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="prod"></div>
+  </section>
+
+  <section>
+    <h2 id="rec-title">추천 순위</h2>
+    <p class="sub">고른 속성이 10건 이상 언급된 제품만 순위에 넣습니다 (언급 2건에 긍정 100%인 제품이 1위가 되는 걸 막기 위해). 행을 누르면 그 제품을 위에서 봅니다.</p>
+    <div class="panel tbl-wrap" id="rec"></div>
+  </section>
+
+  <section>
+    <h2>어떻게 계산했나</h2>
+    <p class="sub">코드와 실험 기록은 GitHub 저장소에 있습니다.</p>
+    <div class="how">
+      <div class="panel"><h3>① 속성 분류기</h3><p>KLUE-RoBERTa를 AI Hub 화장품 리뷰 12,000건으로 파인튜닝한 멀티라벨 분류기. 리뷰 하나에서 21개 속성을 동시에 찾고, 확률 0.6을 넘는 것만 씁니다 (속성을 놓치면 감정 분류로 넘어가지도 못해 Recall을 우선).</p></div>
+      <div class="panel"><h3>② 감정 분류기</h3><p><code>[CLS] 리뷰 [SEP] 속성 [SEP]</code> 문장쌍을 넣어 "이 리뷰에서 <b>이 속성</b>에 대한 감정"을 분류합니다. AI Hub 테스트셋 Macro F1 <b>0.892</b>.</p></div>
+      <div class="panel"><h3>③ 지수</h3><ul>
+        <li><b>기본 지수</b> — 속성별 긍정 비율을, 그 제품 리뷰에서 실제로 언급된 비율로 가중 평균 (고정 가중치 대신 제품마다 관심사가 다른 걸 반영)</li>
+        <li><b>개인화 지수</b> — 고른 속성 긍정 비율 × 0.5 + 나머지 속성 × 0.5</li></ul></div>
+      <div class="panel"><h3>이 숫자가 말하지 않는 것</h3><ul>
+        <li>제품당 리뷰 약 50건이라 속성별 언급은 5~30건 수준 — 비교용 참고 지표입니다</li>
+        <li>만족한 사람이 리뷰를 더 써서 전반적으로 긍정 비율이 높습니다</li>
+        <li>모델이 AI Hub 쇼핑몰 리뷰로 학습해 올리브영 문체와 차이가 있습니다. 올리브영 리뷰에 사람이 정답을 붙인 실제 성능 검증을 진행 중입니다</li></ul></div>
+    </div>
+  </section>
+
+  <footer>
+    데이터: <span id="src"></span> · 리뷰 원문은 싣지 않고 모델 예측 집계만 보여줍니다 ·
+    <a href="https://github.com/seoyunkim129/korean-cosmetic-absa">github.com/seoyunkim129/korean-cosmetic-absa</a>
+  </footer>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script src="data.js"></script>
+<script>
+const D = window.ABSA_DATA;
+const $ = id => document.getElementById(id);
+const MIN_SHOW = 5, MIN_RANK = 10, SENTS = [["긍정", "pos"], ["부정", "neg"], ["중립", "neu"]];
+const ASPECTS = [...new Set(D.products.flatMap(p => Object.keys(p.aspects)))].sort((a, b) => a.localeCompare(b, "ko"));
+const byName = Object.fromEntries(D.products.map(p => [p.name, p]));
+const total = c => c[0] + c[1] + c[2];
+const pct = (x, n) => n ? Math.round(x / n * 1000) / 10 : 0;
+const esc = s => s.replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+let state = { product: "라운드랩 1025 독도 토너 500ml 기획", aspect: null };
+try { const s = JSON.parse(localStorage.getItem("absa-demo") || "null"); if (s && byName[s.product]) state = s; } catch (e) {}
+const save = () => { try { localStorage.setItem("absa-demo", JSON.stringify(state)); } catch (e) {} };
+
+// 상단 숫자
+$("stats").innerHTML = [
+  [D.products.length + "개", "제품"], [D.total_reviews.toLocaleString() + "건", "리뷰"],
+  [ASPECTS.length + "개", "속성"], ["0.892", "감정 분류 Macro F1 (AI Hub 테스트)"],
+].map(([v, k]) => `<span class="stat"><b>${v}</b> ${k}</span>`).join("");
+$("src").textContent = D.source;
+
+// 평균이 가린 불만: 부정 비율 상위
+const alerts = D.products.flatMap(p => Object.entries(p.aspects)
+  .filter(([, c]) => total(c) >= MIN_RANK)
+  .map(([a, c]) => ({ p, a, c, neg: pct(c[1], total(c)) })))
+  .filter(x => x.neg >= 30).sort((x, y) => y.neg - x.neg).slice(0, 6);
+$("alerts").innerHTML = alerts.map((x, i) => {
+  const best = Object.entries(x.p.aspects).filter(([a, c]) => a !== x.a && total(c) >= MIN_RANK)
+    .sort((m, n) => total(n[1]) - total(m[1]))[0];
+  const also = best ? `같은 제품 ${best[0]}은 긍정 ${pct(best[1][0], total(best[1]))}% (${total(best[1])}건)` : "";
+  return `<button class="alert" data-i="${i}"><div class="asp">${x.a} 부정</div>
+    <div class="pct">${x.neg}%<small>${x.c[1]} / ${total(x.c)}건</small></div>
+    <div class="prod">${esc(x.p.name)}</div><div class="also">${also}</div></button>`;
+}).join("");
+$("alerts").querySelectorAll(".alert").forEach(b => b.onclick = () => {
+  const x = alerts[+b.dataset.i]; state.product = x.p.name; state.aspect = x.a; render();
+  $("prod").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+// 제품 목록
+function drawList() {
+  const q = $("q").value.trim().toLowerCase();
+  const list = D.products.filter(p => !q || p.name.toLowerCase().includes(q));
+  $("plist").innerHTML = list.map(p => `<li><button role="option" aria-selected="${p.name === state.product}" data-n="${esc(p.name)}">
+    ${esc(p.name)}<span class="n">리뷰 ${p.reviews}</span></button></li>`).join("") || `<li class="sub" style="padding:8px">검색 결과 없음</li>`;
+  $("plist").querySelectorAll("button").forEach(b => b.onclick = () => { state.product = b.dataset.n; render(); });
+}
+$("q").oninput = drawList;
+
+// 속성 칩
+function drawChips() {
+  $("chips").innerHTML = [`<button class="chip" aria-pressed="${!state.aspect}" data-a="">선택 안 함</button>`]
+    .concat(ASPECTS.map(a => `<button class="chip" aria-pressed="${state.aspect === a}" data-a="${a}">${a}</button>`)).join("");
+  $("chips").querySelectorAll(".chip").forEach(b => b.onclick = () => { state.aspect = b.dataset.a || null; render(); });
+}
+
+// 제품 패널
+function drawProduct() {
+  const p = byName[state.product];
+  const rows = Object.entries(p.aspects).filter(([, c]) => total(c) >= MIN_SHOW).sort((x, y) => total(y[1]) - total(x[1]));
+  const few = Object.entries(p.aspects).filter(([, c]) => total(c) < MIN_SHOW).sort((x, y) => total(y[1]) - total(x[1]));
+  const personal = state.aspect ? p.personal[state.aspect] : null;
+  const personalTile = !state.aspect ? `<div class="tile"><div class="lab">개인화 지수</div><div class="val"><small>속성을 고르면 나와요</small></div></div>`
+    : personal == null ? `<div class="tile"><div class="lab">개인화 지수 · ${state.aspect}</div><div class="val"><small>언급 ${MIN_SHOW}건 미만</small></div></div>`
+    : `<div class="tile hl"><div class="lab">개인화 지수 · ${state.aspect}</div><div class="val">${personal}<small>점</small></div></div>`;
+  $("prod").innerHTML = `
+    <div class="prod-head">
+      <div><h2>${esc(p.name)}</h2><div class="sub">리뷰 ${p.reviews}건 · 속성별 언급 수 많은 순 · 언급 ${MIN_SHOW}건 이상만 막대로 표시</div></div>
+      <div class="tiles"><div class="tile"><div class="lab">기본 만족도 지수</div><div class="val">${p.base}<small>점</small></div></div>${personalTile}</div>
+    </div>
+    <div class="legend"><span>오른쪽 숫자 = 긍정 비율</span>${SENTS.map(([k, c]) => `<span><i style="background:var(--${c})"></i>${k}</span>`).join("")}</div>
+    <div class="bars">${rows.map(([a, c]) => {
+      const n = total(c);
+      return `<div class="bar-row${a === state.aspect ? " mine" : ""}" data-a="${a}">
+        <span class="name">${a}<small>${n}건</small></span>
+        <span class="track">${SENTS.map(([, cls], i) => c[i] ? `<span class="seg ${cls}" style="flex:${c[i]}"></span>` : "").join("")}</span>
+        <span class="v"><span class="vk">긍정 </span>${pct(c[0], n)}%</span></div>`;
+    }).join("")}</div>
+    ${few.length ? `<div class="few">표본 부족(언급 ${MIN_SHOW}건 미만): ${few.map(([a, c]) => `${a} ${total(c)}건`).join(" · ")}</div>` : ""}`;
+  // 막대 hover 툴팁
+  $("prod").querySelectorAll(".bar-row").forEach(row => {
+    const c = p.aspects[row.dataset.a], n = total(c);
+    row.onmousemove = e => {
+      $("tip").innerHTML = `<b>${row.dataset.a}</b> · ${n}건` + SENTS.map(([k, cls], i) =>
+        `<div class="row"><span><i style="background:var(--${cls})"></i>${k}</span><span>${c[i]}건 · ${pct(c[i], n)}%</span></div>`).join("");
+      const t = $("tip"); t.style.display = "block";
+      t.style.left = Math.min(e.clientX + 14, innerWidth - t.offsetWidth - 8) + "px";
+      t.style.top = (e.clientY + 14) + "px";
+    };
+    row.onmouseleave = () => { $("tip").style.display = "none"; };
+  });
+}
+
+// 추천 순위
+function drawRec() {
+  const a = state.aspect;
+  $("rec-title").textContent = a ? `추천 순위 — ${a} 중시` : "추천 순위";
+  if (!a) { $("rec").innerHTML = `<div class="empty">위에서 중시하는 속성을 고르면, 그 속성을 반영한 개인화 지수로 34개 제품의 순위를 매깁니다.</div>`; return; }
+  const list = D.products.filter(p => p.aspects[a] && total(p.aspects[a]) >= MIN_RANK && p.personal[a] != null)
+    .map(p => ({ p, c: p.aspects[a] })).sort((x, y) => y.p.personal[a] - x.p.personal[a]);
+  if (!list.length) { $("rec").innerHTML = `<div class="empty">${a}이(가) ${MIN_RANK}건 이상 언급된 제품이 없어 순위를 매기지 않았습니다.</div>`; return; }
+  $("rec").innerHTML = `<table><thead><tr><th class="n">순위</th><th>제품</th><th class="n">${a} 긍정</th><th class="n">언급</th><th class="n">기본 지수</th><th class="n">개인화 지수</th></tr></thead><tbody>` +
+    list.map((x, i) => `<tr class="${x.p.name === state.product ? "sel" : ""}" data-n="${esc(x.p.name)}"><td class="n">${i + 1}</td><td>${esc(x.p.name)}</td>
+      <td class="n">${pct(x.c[0], total(x.c))}%</td><td class="n">${total(x.c)}건</td><td class="n">${x.p.base}</td><td class="n"><b>${x.p.personal[a]}</b></td></tr>`).join("") +
+    `</tbody></table>`;
+  $("rec").querySelectorAll("tbody tr").forEach(tr => tr.onclick = () => {
+    state.product = tr.dataset.n; render(); $("prod").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function render() { drawList(); drawChips(); drawProduct(); drawRec(); save(); }
+render();
+</script>
+</body>
+</html>
